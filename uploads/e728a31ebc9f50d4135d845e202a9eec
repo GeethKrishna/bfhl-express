@@ -1,0 +1,144 @@
+#include <bits/stdc++.h>
+using namespace std;
+
+class Node {
+	public:
+	string data;
+	int lock;
+	bool islocked;
+	vector<Node*> child;
+	Node* parent;
+	unordered_set<Node*> lockedDes;
+	Node(string value) : data(value), lock(-1), islocked(false), parent(NULL) {}
+	Node(string value, Node* p) : data(value), lock(-1), islocked(false), parent(p) {}
+};
+
+unordered_map<string,Node*> mp;
+Node* groot = NULL;
+
+Node* generateTree(vector<string>& nodes, int k){
+	if(nodes.empty()) return NULL;
+	Node* root = new Node(nodes[0]);
+	queue<Node*> q;
+	q.push(root);
+	mp[root->data] = root;
+	int i = 1;
+	while(!q.empty() && i<nodes.size()){
+		Node* curr = q.front();
+		q.pop();
+		for(int j=0;j<k && i<nodes.size(); j++){
+			Node* kid = new Node(nodes[i++],curr);
+			mp[nodes[i-1]] = kid;
+			curr->child.push_back(kid);
+			q.push(kid);
+		}
+	}
+	return root;
+}
+
+void printTree(Node* root){
+	if(root==NULL) return;
+	queue<Node*> q;
+	q.push(root);
+	while(!q.empty()){
+		Node* curr = q.front();
+		q.pop();
+		cout<<curr->data<<": ";
+		for(Node* children: curr->child){
+			cout<<children->data<<" ";
+			q.push(children);
+		}
+		cout<<endl;
+	}
+}
+
+void updatedparentslockedDes(Node* node, Node* curr){
+	while(node){
+		node->lockedDes.insert(curr);
+		node = node->parent;
+	}
+}
+
+bool lock(string val, int user){
+	Node* node = mp[val];
+	if(node->islocked || node->lockedDes.size()) return false;
+	Node* pp = node->parent;
+	while(pp){
+		if(pp->islocked) return false;
+		pp = pp->parent;
+	}
+	updatedparentslockedDes(node->parent,node);
+	node->islocked = true;
+	node->lock = user;
+	return true;
+}
+
+bool unlock(string val, int user){
+	Node* node = mp[val];
+	if(!node->islocked || node->lock!=user) return false;
+	Node* pp = node->parent;
+	while(pp){
+		pp->lockedDes.erase(node);
+		pp = pp->parent;
+	}
+	node->islocked = false;
+	node->lock = -1;
+	return true;
+}
+
+bool upgrade(string val, int user){
+	Node* node = mp[val];
+	if(node->islocked || node->lockedDes.size()==0) return false;
+	for(auto i: node->lockedDes){
+		if(i->lock != user) return false;
+	}
+	Node* pp = node->parent;
+	while(pp){
+		if(pp->islocked) return false;
+		pp = pp->parent;
+	}
+	set<Node*> temp = node->lockedDes;
+	for(auto i: temp){
+		unlock(i->data,user);
+	}
+	lock(val,user);
+	return true;
+}
+
+int main(){
+	int n;
+	cin>>n;
+	int k,t;
+	cin>>k;
+	cin>>t;
+	vector<string> nodes;
+	for(int i=0;i<n;i++){
+		string temp;
+		cin>>temp;
+		nodes.push_back(temp);
+	}
+	Node* root = generateTree(nodes, k);
+	groot = root;
+	//printTree(root);
+	for(int i=0;i<t;i++){
+		int x,user;
+		string str;
+		cin>>x>>str>>user;
+		if(x==1){
+			if(lock(str,user)) cout<<"true";
+			else cout<<"false";
+			cout<<endl;
+		}
+		else if(x==2){
+			if(unlock(str,user)) cout<<"true";
+			else cout<<"false";
+			cout<<endl;
+		}
+		else if(x==3){
+			if(upgrade(str,user)) cout<<"true";
+			else cout<<"false";
+			cout<<endl;
+		}
+	}
+	return 0;
+}
