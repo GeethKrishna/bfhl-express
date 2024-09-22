@@ -135,9 +135,9 @@ app.post('/bfhl', upload.single('file'), (req, res) => {
 
   const response = {
     is_success: true,
-    user_id: "john_doe_17091999", // Hardcoded for example
-    email: "john@xyz.com",
-    roll_number: "ABCD123",
+    user_id: "Geeth_p_08062004", // Hardcoded for example
+    email: "geethkrishna_p@srmap.edu.in",
+    roll_number: "AP21110011504",
     numbers: numbers,
     alphabets: alphabets,
     highest_lowercase_alphabet: highestLowercaseAlphabet,
