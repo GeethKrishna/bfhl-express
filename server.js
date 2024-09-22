@@ -5,7 +5,10 @@ const multer = require('multer');
 const fs = require('fs');
 const port = 3001;
 
-// Set up multer for file uploads (using disk storage for this example)
+// Base64 decoding utilities
+const mime = require('mime-types'); // For extracting MIME types from file extensions
+
+// Set up multer for file uploads (using disk storage for file upload)
 const upload = multer({ dest: 'uploads/' });
 
 app.use(cors());
@@ -38,6 +41,20 @@ const processData = (inputData) => {
   return { numbers, alphabets, highestLowercaseAlphabet };
 };
 
+// Updated decodeBase64 function
+const decodeBase64 = (b64string) => {
+  const matches = b64string.match(/^data:(.+);base64,(.+)$/);
+  if (!matches || matches.length !== 3) {
+    throw new Error("Invalid base64 string format");
+  }
+
+  const mimeType = matches[1]; // Extract MIME type
+  const buffer = Buffer.from(matches[2], 'base64'); // Decode base64 content to a buffer
+  const fileSizeKb = Math.round(buffer.length / 1024); // Calculate size in KB
+
+  return { mimeType, fileSizeKb };
+};
+
 app.get("/", (req, res) => {
   res.json({ operation_code: 1 });
 });
@@ -49,21 +66,18 @@ app.get("/bfhl", (req, res) => {
 // POST /bfhl endpoint with flexible handling
 app.post('/bfhl', upload.single('file'), (req, res) => {
   console.log('Received request body:', req.body);
-  console.log('Received file:', req.file);
 
   let data;
   try {
-    // Check if the request is multipart (from form) or direct JSON
     if (req.file || (req.headers['content-type'] && req.headers['content-type'].startsWith('multipart/form-data'))) {
-      // If it's multipart, parse the 'data' field
+      // If it's a multipart form, parse 'data' field
       data = JSON.parse(req.body.data);
     } else {
-      // If it's direct JSON, use the body as is
+      // If direct JSON, use body as-is
       data = req.body;
     }
-    console.log('Parsed data:', data);
 
-    // Ensure data.data exists and is an array
+    // Ensure 'data' exists and is an array
     if (!data.data || !Array.isArray(data.data)) {
       throw new Error("Invalid input format. 'data' should be an array.");
     }
@@ -82,6 +96,7 @@ app.post('/bfhl', upload.single('file'), (req, res) => {
     file_valid: false
   };
 
+  // Handle actual file upload using multer
   if (req.file) {
     fileInfo = {
       file_valid: true,
@@ -89,13 +104,40 @@ app.post('/bfhl', upload.single('file'), (req, res) => {
       file_size_kb: Math.round(req.file.size / 1024).toString(),
       file_name: req.file.originalname
     };
+
+    // Delete the file after processing
+    fs.unlink(req.file.path, (err) => {
+      if (err) {
+        console.error('Failed to delete file:', err);
+      }
+    });
+  }
+
+  // Handle base64 file input
+  if (data.file_b64) {
+    try {
+      const { mimeType, fileSizeKb } = decodeBase64(data.file_b64);
+      fileInfo = {
+        file_valid: true,
+        file_mime_type: mimeType,
+        file_size_kb: fileSizeKb.toString(),
+        file_name: 'file_b64'
+      };
+    } catch (error) {
+      console.error('Error decoding base64:', error);
+      return res.status(400).json({
+        is_success: false,
+        user_id: userId,
+        message: error.message
+      });
+    }
   }
 
   const response = {
     is_success: true,
-    user_id: userId,
-    email: "geethkrishna_p@srmap.edu.in",
-    roll_number: "AP21110011504",
+    user_id: "john_doe_17091999", // Hardcoded for example
+    email: "john@xyz.com",
+    roll_number: "ABCD123",
     numbers: numbers,
     alphabets: alphabets,
     highest_lowercase_alphabet: highestLowercaseAlphabet,
@@ -103,20 +145,7 @@ app.post('/bfhl', upload.single('file'), (req, res) => {
   };
 
   console.log('Sending response:', response);
-
-  // Send the response
   res.json(response);
-
-  // Delete the file after response
-  if (req.file) {
-    fs.unlink(req.file.path, (err) => {
-      if (err) {
-        console.error('Failed to delete file:', err);
-      } else {
-        console.log('File deleted successfully');
-      }
-    });
-  }
 });
 
 // Error handling middleware
@@ -127,5 +156,5 @@ app.use((err, req, res, next) => {
 
 // Start the server
 app.listen(port, () => {
-  //console.log(`Server listening at http://localhost:${port}`);
+  console.log(`Server listening at http://localhost:${port}`);
 });
